@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BRAT Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Arial+Narrow&family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --lime: #8fff00;
+      --black: #0a0a0a;
+      --gray: #1a1a1a;
+      --muted: #444;
+      --text: #e8e8e8;
+    }
+
+    body {
+      background-color: var(--black);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Noise overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    /* Header */
+    .header {
+      text-align: left;
+      margin-bottom: 2.5rem;
+    }
+
+    .label {
+      font-size: 0.7rem;
+      letter-spacing: 0.25em;
+      color: var(--lime);
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(4rem, 12vw, 7rem);
+      line-height: 0.9;
+      letter-spacing: -0.02em;
+      color: var(--lime);
+      text-shadow: 4px 4px 0 #3a6600;
+    }
+
+    .subtitle {
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-top: 0.6rem;
+    }
+
+    /* Card */
+    .card {
+      background: var(--gray);
+      border: 1px solid #2a2a2a;
+      padding: 2rem;
+      position: relative;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: -3px; left: -3px;
+      width: 24px; height: 24px;
+      border-top: 3px solid var(--lime);
+      border-left: 3px solid var(--lime);
+    }
+    .card::after {
+      content: '';
+      position: absolute;
+      bottom: -3px; right: -3px;
+      width: 24px; height: 24px;
+      border-bottom: 3px solid var(--lime);
+      border-right: 3px solid var(--lime);
+    }
+
+    /* Input row */
+    .input-row {
+      display: flex;
+      gap: 0;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: var(--black);
+      border: 1px solid #333;
+      border-right: none;
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.95rem;
+      padding: 0.85rem 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--lime);
+    }
+
+    input[type="text"]::placeholder {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    button.generate-btn {
+      background: var(--lime);
+      border: 1px solid var(--lime);
+      color: var(--black);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      padding: 0.85rem 1.4rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    button.generate-btn:hover {
+      background: #aeff33;
+    }
+
+    button.generate-btn:active {
+      background: #6dcc00;
+    }
+
+    button.generate-btn:disabled {
+      background: var(--muted);
+      border-color: var(--muted);
+      cursor: not-allowed;
+    }
+
+    /* Result area */
+    .result-area {
+      margin-top: 1.8rem;
+      min-height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px dashed #2a2a2a;
+      position: relative;
+      overflow: hidden;
+      background: var(--black);
+    }
+
+    .placeholder-text {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .result-area img {
+      max-width: 100%;
+      display: block;
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    /* Loader */
+    .loader {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #2a2a2a;
+      border-top-color: var(--lime);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Error */
+    .error-msg {
+      color: #ff5050;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* Action bar */
+    .action-bar {
+      display: flex;
+      gap: 0.6rem;
+      margin-top: 1rem;
+      justify-content: flex-end;
+    }
+
+    .action-bar a, .action-bar button {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.45rem 0.9rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .btn-download {
+      background: var(--lime);
+      color: var(--black);
+      border: none;
+    }
+
+    .btn-download:hover { background: #aeff33; }
+
+    .btn-copy {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid #333;
+    }
+
+    .btn-copy:hover { border-color: var(--lime); color: var(--lime); }
+
+    /* Footer */
+    .footer {
+      margin-top: 2rem;
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .footer span { color: var(--lime); }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <p class="label">// image generator</p>
+      <h1>BRAT</h1>
+      <p class="subtitle">charli xcx aesthetic &mdash; powered by vercel</p>
+    </div>
+
+    <div class="card">
+      <div class="input-row">
+        <input type="text" id="textInput" placeholder="ketik sesuatu di sini..." maxlength="80" autocomplete="off" />
+        <button class="generate-btn" id="genBtn" onclick="generate()">GEN</button>
+      </div>
+
+      <div class="result-area" id="resultArea">
+        <p class="placeholder-text" id="placeholder">hasil muncul di sini</p>
+      </div>
+
+      <div class="action-bar" id="actionBar" style="display:none;">
+        <a class="btn-download" id="dlBtn" download="brat.png">↓ DOWNLOAD</a>
+        <button class="btn-copy" onclick="copyImage()">⎘ COPY</button>
+      </div>
+    </div>
+
+    <p class="footer">built on <span>vercel</span> &mdash; api by sxtream.my.id</p>
+  </div>
+
+  <script>
+    const input = document.getElementById('textInput');
+    const btn   = document.getElementById('genBtn');
+    const area  = document.getElementById('resultArea');
+    const placeholder = document.getElementById('placeholder');
+    const actionBar = document.getElementById('actionBar');
+    const dlBtn = document.getElementById('dlBtn');
+
+    let currentImgSrc = null;
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') generate();
+    });
+
+    async function generate() {
+      const text = input.value.trim();
+      if (!text) { input.focus(); return; }
+
+      btn.disabled = true;
+      actionBar.style.display = 'none';
+      area.innerHTML = '<div class="loader"></div>';
+
+      try {
+        const res = await fetch(`/api/brat?text=${encodeURIComponent(text)}`);
+        if (!res.ok) throw new Error('API error ' + res.status);
+
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        currentImgSrc = url;
+
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = text;
+
+        area.innerHTML = '';
+        area.appendChild(img);
+
+        dlBtn.href = url;
+        dlBtn.download = `brat-${text.slice(0, 20).replace(/\s+/g, '-')}.png`;
+        actionBar.style.display = 'flex';
+      } catch (err) {
+        area.innerHTML = `<p class="error-msg">// error: gagal memuat gambar</p>`;
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function copyImage() {
+      if (!currentImgSrc) return;
+      try {
+        const res   = await fetch(currentImgSrc);
+        const blob  = await res.blob();
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+        const copyBtn = document.querySelector('.btn-copy');
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = '✓ COPIED';
+        setTimeout(() => copyBtn.textContent = orig, 1500);
+      } catch {
+        alert('Copy tidak didukung browser ini.');
+      }
+    }
+  </script>
+</body>
+  </html>
+        
