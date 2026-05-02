@@ -311,7 +311,7 @@
       area.innerHTML = '<div class="loader"></div>';
 
       try {
-        const res = await fetch(`/api/brat?text=${encodeURIComponent(text)}`);
+        const res = await fetch(`/maker/brat?text=${encodeURIComponent(text)}`);
         if (!res.ok) throw new Error('API error ' + res.status);
 
         const blob = await res.blob();
